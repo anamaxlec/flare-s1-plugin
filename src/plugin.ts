@@ -41,10 +41,10 @@ defineFlareSocialPlugin({
   capabilities: {
     timeline: {
       async page(request, context) {
-        const fid = id(request.parameters.fid ?? request.page.parameters.fid);
+        const fid = id(request.parameters?.fid ?? request.page.parameters?.fid ?? /^forum-(\d+)$/.exec(request.timelineId)?.[1]);
         if (!fid) fail("Validation", "没有指定版面");
         const position = cursor(request.page);
-        const filter = request.parameters.digest === "1" ? { filter: "digest", digest: "1" } : undefined;
+        const filter = request.parameters?.digest === "1" ? { filter: "digest", digest: "1" } : undefined;
         const data = await api("forumdisplay", { fid, page: String(position.batch), tpp: "15", ...filter }, await cookiesFor(context));
         const forum = obj(data.forum);
         if (!Array.isArray(data.forum_threadlist)) fail("InvalidResponse", "S1 没有返回版面帖子");
@@ -74,16 +74,7 @@ defineFlareSocialPlugin({
           const category = obj(value);
           const idValue = id(category?.fid);
           if (!idValue) continue;
-          const items: TimelineDescriptorV1[] = [];
-          for (const fid of list(category?.forums)) {
-            const forum = forums.get(str(fid));
-            if (!forum) continue;
-            for (const board of [forum, ...list(forum.sublist).map(obj)]) {
-              const boardId = id(board?.fid);
-              const name = str(board?.name);
-              if (boardId && name) items.push({ id: "forum-" + boardId, title: { value: name }, icon: "Channel", parameters: { fid: boardId } });
-            }
-          }
+          const items = list(category?.forums).flatMap((fid) => forumTabs(forums.get(str(fid))));
           if (items.length) sections.push({
             id: "section-" + idValue,
             title: { value: str(category?.name) || "版面" },
@@ -126,6 +117,17 @@ defineFlareSocialPlugin({
   },
 });
 
+function forumTabs(forum: Row | undefined, parent = ""): TimelineDescriptorV1[] {
+  const fid = id(forum?.fid);
+  const name = decode(str(forum?.name)).trim();
+  if (!forum || !fid || !name) return [];
+  const label = parent ? parent + " · " + name : name;
+  return [
+    { id: "forum-" + fid, title: { value: label }, icon: "Channel", parameters: { fid } },
+    ...list(forum.sublist).flatMap((child) => forumTabs(obj(child), label)),
+  ];
+}
+
 async function api(module: string, params: Record<string, string>, cookies: Cookie[]): Promise<Row> {
   const query = Object.entries(params).map(([key, value]) => "&" + key + "=" + encodeURIComponent(value)).join("");
   const response = await flare.http.request({
@@ -141,8 +143,8 @@ async function api(module: string, params: Record<string, string>, cookies: Cook
   const message = obj(root?.Message);
   const data = obj(root?.Variables);
   const code = str(message?.messageval);
-  if (/not_loggedin|login_before|login_required|group_nopermission/.test(code)) {
-    fail("AuthenticationRequired", str(message?.messagestr) || "这个版面需要登录或相应权限");
+  if (/not_loggedin|login_before|login_required|(?:viewperm_)?login_nopermission|group_nopermission/.test(code)) {
+    fail("AuthenticationRequired", "这个版面需要登录或相应权限");
   }
   if (!data) fail("InvalidResponse", "S1 没有返回论坛数据");
   return data;
@@ -203,7 +205,7 @@ function preview(thread: Row, tid: string, fid: string, forum: string): PostV1 {
     if (!path || Number(attachment?.remote) || Number(attachment?.readperm) || Number(attachment?.price)) continue;
     const url = https("data/attachment/forum/" + path);
     if (url) media.push({ id: tid + "-m" + media.length, type: /\.gif$/i.test(path) ? "gif" : "image", url,
-      width: number(attachment?.width), height: number(attachment?.height) });
+      width: dimension(attachment?.width), height: dimension(attachment?.height) });
     if (media.length >= 4) break;
   }
   return {
@@ -285,6 +287,11 @@ function list(value: unknown): unknown[] { return Array.isArray(value) ? value :
 function str(value: unknown): string { return typeof value === "string" || typeof value === "number" ? String(value) : ""; }
 function id(value: unknown): string | undefined { const v = str(value); return /^[1-9]\d*$/.test(v) && Number.isSafeInteger(Number(v)) ? v : undefined; }
 function number(value: unknown): number | undefined { const v = str(value); return /^\d+$/.test(v) && Number.isSafeInteger(Number(v)) ? Number(v) : undefined; }
+function dimension(value: unknown): number | undefined {
+  const size = number(value);
+  // Discuz sometimes returns 0 when it could not determine an attachment's dimensions.
+  return size && size <= 100_000 ? size : undefined;
+}
 function key(id: string): EntityKeyV1 { return { id, host: HOST }; }
 function attr(tag: string, name: string): string {
   const m = new RegExp("\\s" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i").exec(tag);

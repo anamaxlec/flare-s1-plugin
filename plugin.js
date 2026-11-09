@@ -37,10 +37,10 @@
     capabilities: {
       timeline: {
         async page(request, context) {
-          const fid = id(request.parameters.fid ?? request.page.parameters.fid);
+          const fid = id(request.parameters?.fid ?? request.page.parameters?.fid ?? /^forum-(\d+)$/.exec(request.timelineId)?.[1]);
           if (!fid) fail("Validation", "\u6CA1\u6709\u6307\u5B9A\u7248\u9762");
           const position = cursor(request.page);
-          const filter = request.parameters.digest === "1" ? { filter: "digest", digest: "1" } : void 0;
+          const filter = request.parameters?.digest === "1" ? { filter: "digest", digest: "1" } : void 0;
           const data = await api("forumdisplay", { fid, page: String(position.batch), tpp: "15", ...filter }, await cookiesFor(context));
           const forum = obj(data.forum);
           if (!Array.isArray(data.forum_threadlist)) fail("InvalidResponse", "S1 \u6CA1\u6709\u8FD4\u56DE\u7248\u9762\u5E16\u5B50");
@@ -73,16 +73,7 @@
             const category = obj(value);
             const idValue = id(category?.fid);
             if (!idValue) continue;
-            const items = [];
-            for (const fid of list(category?.forums)) {
-              const forum = forums.get(str(fid));
-              if (!forum) continue;
-              for (const board of [forum, ...list(forum.sublist).map(obj)]) {
-                const boardId = id(board?.fid);
-                const name = str(board?.name);
-                if (boardId && name) items.push({ id: "forum-" + boardId, title: { value: name }, icon: "Channel", parameters: { fid: boardId } });
-              }
-            }
+            const items = list(category?.forums).flatMap((fid) => forumTabs(forums.get(str(fid))));
             if (items.length) sections.push({
               id: "section-" + idValue,
               title: { value: str(category?.name) || "\u7248\u9762" },
@@ -125,6 +116,16 @@
       }
     }
   });
+  function forumTabs(forum, parent = "") {
+    const fid = id(forum?.fid);
+    const name = decode(str(forum?.name)).trim();
+    if (!forum || !fid || !name) return [];
+    const label = parent ? parent + " \xB7 " + name : name;
+    return [
+      { id: "forum-" + fid, title: { value: label }, icon: "Channel", parameters: { fid } },
+      ...list(forum.sublist).flatMap((child) => forumTabs(obj(child), label))
+    ];
+  }
   async function api(module, params, cookies) {
     const query = Object.entries(params).map(([key2, value]) => "&" + key2 + "=" + encodeURIComponent(value)).join("");
     const response = await flare.http.request({
@@ -144,8 +145,8 @@
     const message = obj(root?.Message);
     const data = obj(root?.Variables);
     const code = str(message?.messageval);
-    if (/not_loggedin|login_before|login_required|group_nopermission/.test(code)) {
-      fail("AuthenticationRequired", str(message?.messagestr) || "\u8FD9\u4E2A\u7248\u9762\u9700\u8981\u767B\u5F55\u6216\u76F8\u5E94\u6743\u9650");
+    if (/not_loggedin|login_before|login_required|(?:viewperm_)?login_nopermission|group_nopermission/.test(code)) {
+      fail("AuthenticationRequired", "\u8FD9\u4E2A\u7248\u9762\u9700\u8981\u767B\u5F55\u6216\u76F8\u5E94\u6743\u9650");
     }
     if (!data) fail("InvalidResponse", "S1 \u6CA1\u6709\u8FD4\u56DE\u8BBA\u575B\u6570\u636E");
     return data;
@@ -203,8 +204,8 @@
         id: tid + "-m" + media.length,
         type: /\.gif$/i.test(path) ? "gif" : "image",
         url,
-        width: number(attachment?.width),
-        height: number(attachment?.height)
+        width: dimension(attachment?.width),
+        height: dimension(attachment?.height)
       });
       if (media.length >= 4) break;
     }
@@ -299,6 +300,10 @@
   function number(value) {
     const v = str(value);
     return /^\d+$/.test(v) && Number.isSafeInteger(Number(v)) ? Number(v) : void 0;
+  }
+  function dimension(value) {
+    const size = number(value);
+    return size && size <= 1e5 ? size : void 0;
   }
   function key(id2) {
     return { id: id2, host: HOST };

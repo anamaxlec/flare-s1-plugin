@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "apiVersion": 1,
   "id": "dev.maxlec.s1",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "defaultLocale": "zh-Hans",
   "name": "Stage1st",
   "description": "S1 游戏、动漫和其他版面",
@@ -124,6 +124,33 @@
         "parameters": {
           "fid": "4",
           "digest": "1"
+        }
+      },
+      {
+        "id": "forum-74",
+        "title": "归墟 · 马叉虫",
+        "icon": "Channel",
+        "display": "List",
+        "parameters": {
+          "fid": "74"
+        }
+      },
+      {
+        "id": "forum-83",
+        "title": "动漫 · 动漫投票鉴赏",
+        "icon": "Channel",
+        "display": "List",
+        "parameters": {
+          "fid": "83"
+        }
+      },
+      {
+        "id": "forum-80",
+        "title": "数码 · 摄影区",
+        "icon": "Channel",
+        "display": "List",
+        "parameters": {
+          "fid": "80"
         }
       }
     ],
