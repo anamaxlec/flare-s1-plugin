@@ -1,0 +1,134 @@
+{
+  "$schema": "https://unpkg.com/flare-plugin-sdk@0.1.0-beta.10/skill/flare-plugin/manifest.schema.json",
+  "schemaVersion": 1,
+  "apiVersion": 1,
+  "id": "dev.maxlec.s1",
+  "version": "0.1.0",
+  "defaultLocale": "zh-Hans",
+  "name": "Stage1st",
+  "description": "S1 游戏、动漫和其他版面",
+  "permissions": {
+    "mediaNetwork": true
+  },
+  "platform": {
+    "id": "s1",
+    "name": "Stage1st",
+    "detector": {
+      "priority": 0
+    },
+    "loginMethods": [
+      {
+        "id": "browser",
+        "interaction": "WebCookie",
+        "title": {
+          "key": "login.browser",
+          "fallback": "Sign in with browser"
+        },
+        "cookie": {
+          "startUrl": "$accountOrigin/2b/member.php?mod=logging&action=login",
+          "probes": [
+            {
+              "url": "$accountOrigin/2b/api/mobile/index.php?module=login&version=4",
+              "cookies": [
+                {
+                  "name": "B7Y9_2f85_auth",
+                  "required": true
+                },
+                {
+                  "name": "B7Y9_2f85_saltkey",
+                  "required": false
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "capabilities": {
+      "flare.datasource.timeline/v1": {
+        "operations": {
+          "page": {
+            "directions": [
+              "refresh",
+              "older"
+            ]
+          }
+        }
+      },
+      "flare.datasource.tab-catalog/v1": {
+        "operations": {
+          "page": {}
+        }
+      },
+      "flare.datasource.post/v1": {
+        "operations": {
+          "detail": {},
+          "context": {
+            "directions": [
+              "refresh",
+              "older"
+            ]
+          }
+        }
+      },
+      "flare.datasource.profile/v1": {
+        "operations": {
+          "byId": {},
+          "byHandle": {}
+        }
+      }
+    },
+    "timelines": [
+      {
+        "id": "game",
+        "title": "游戏",
+        "icon": "Home",
+        "display": "List",
+        "parameters": {
+          "fid": "4"
+        },
+        "defaultForNewAccount": true
+      },
+      {
+        "id": "anime",
+        "title": "动漫",
+        "icon": "List",
+        "display": "List",
+        "parameters": {
+          "fid": "6"
+        }
+      },
+      {
+        "id": "chat",
+        "title": "归墟",
+        "icon": "List",
+        "display": "List",
+        "parameters": {
+          "fid": "157"
+        }
+      },
+      {
+        "id": "film",
+        "title": "影视",
+        "icon": "List",
+        "display": "List",
+        "parameters": {
+          "fid": "48"
+        }
+      },
+      {
+        "id": "game-digest",
+        "title": "游戏精华",
+        "icon": "Featured",
+        "display": "List",
+        "parameters": {
+          "fid": "4",
+          "digest": "1"
+        }
+      }
+    ],
+    "guest": {
+      "enabled": true
+    }
+  }
+}
